@@ -1,6 +1,6 @@
 #include "ProjHelperFun.h"
 #include "Constants.h"
-
+#include <string>
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
     for(unsigned i=0;i<globs.myX.size();++i)
