@@ -1,5 +1,6 @@
 #include "ProjHelperFun.h"
 #include "Constants.h"
+#include "TridagPar.h"
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
@@ -126,7 +127,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
             c[i] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
         }
         // here yy should have size [numX]
-        tridag(a,b,c,u[j],numX,u[j],yy);
+        tridagPar(a,b,c,u[j],numX,u[j],yy);
     }
 
     //	implicit y
@@ -141,7 +142,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
             y[j] = dtInv*u[j][i] - 0.5*v[i][j];
 
         // here yy should have size [numY]
-        tridag(a,b,c,y,numY,globs.myResult[i],yy);
+        tridagPar(a,b,c,y,numY,globs.myResult[i],yy);
     }
 }
 
@@ -182,10 +183,11 @@ void   run_OrigCPU(
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
 ) {
-    REAL strike;
-    PrivGlobs    globs(numX, numY, numT);
-
+    
+    #pragma omp parallel for default(shared) schedule(static)
     for( unsigned i = 0; i < outer; ++ i ) {
+        REAL strike;
+        PrivGlobs    globs(numX, numY, numT);
         strike = 0.001*i;
         res[i] = value( globs, s0, strike, t,
                         alpha, nu,    beta,
