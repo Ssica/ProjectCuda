@@ -3,7 +3,7 @@
 #include "TridagPar.h"
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
-{
+{ //parallelizable
     for(unsigned i=0;i<globs.myX.size();++i)
         for(unsigned j=0;j<globs.myY.size();++j) {
             globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])   
@@ -18,7 +18,7 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
 }
 
 void setPayoff(const REAL strike, PrivGlobs& globs )
-{
+{ //parallelizable
 	for(unsigned i=0;i<globs.myX.size();++i)
 	{
 		REAL payoff = max(globs.myX[i]-strike, (REAL)0.0);
