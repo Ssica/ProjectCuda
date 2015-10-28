@@ -87,7 +87,14 @@ __global__ void rollback_explicit_y(REAL *v,
     
 }
 
-__global__ void rollback_implicit_x(REAL *a, REAL *b, REAL *c, REAL *myVarX, REAL* myDxx, REAL* dtInv,int numY, int numX){
+__global__ void rollback_implicit_x(REAL *a, 
+                                    REAL *b, 
+                                    REAL *c, 
+                                    REAL *myVarX, 
+                                    REAL* myDxx, 
+                                    REAL* dtInv,
+                                    int numY, 
+                                    int numX){
 
     const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int j = blockIdx.y * blockDim.y + threadIdx.y;                                
