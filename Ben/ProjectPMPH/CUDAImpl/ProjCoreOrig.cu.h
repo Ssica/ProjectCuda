@@ -1,3 +1,4 @@
+#include "ProjHelperFun.h"
 #include "Constants.h"
 #include "TridagKernel.cu.h"
 
@@ -15,7 +16,7 @@ __global__ void updateParams_kernel(const unsigned g, const REAL alpha, const RE
     myVarY[i * numY + j] = exp(2.0 * (alpha * log(myX[i]) + myY[j] - 0.5*nu*nu*myTimeline[g]));
   }
 
-__global__ void setPayoff_kernel(const REAL strike, REAL *myX, REAL *myY, REAL *myResult) {
+__global__ void setPayoff_kernel(const REAL strike, REAL *myX, REAL *myY, REAL *myResult, int numX, int numY) {
     //already parallelized
     const unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -50,7 +51,7 @@ __global__ void rollback_explicit_x(REAL *u,
     u[j * numX + i] += 0.5*( 0.5*myVarX[i * numY + j]*myDxx[i * numY + 1] ) 
                             * myResult[i * numY + j];
                             
-    íf (i < numX - 1) {
+    if (i < numX - 1) {
         u[j * numX + i] += 0.5*( 0.5*myVarX[i * numY + j]*myDxx[i * numY + 2] ) 
                             * myResult[i * numY + 1 + j];
     }
@@ -80,7 +81,7 @@ __global__ void rollback_explicit_y(REAL *v,
     
     v[i * numY + j] += 0.5*( 0.5*myVarY[i * numY + j]*myDyy[j * numX + 1] ) 
                         * myResult[i * numY + j];                            
-    íf (i < numX - 1) {
+    if (i < numX - 1) {
         v[i * numY + j] += 0.5*( 0.5*myVarY[i * numY + j]*myDyy[j * numX + 2] ) 
                             * myResult[i * numY + j + 1];
     }
@@ -94,7 +95,7 @@ __global__ void rollback_implicit_x(REAL *a,
                                     REAL *c, 
                                     REAL *myVarX, 
                                     REAL* myDxx, 
-                                    REAL* dtInv,
+                                    REAL dtInv,
                                     int numY, 
                                     int numX){
 
@@ -126,15 +127,14 @@ __global__ void rollback_implicit_y(REAL *a,
 
     if (i >= numX && j >= numY) return;
 
-    a[i * numX + j] = -0.5*(0.5*myVarY[i * numY + j]*myDxx[j * numY + 0]);
+    a[i * numX + j] = -0.5*(0.5*myVarY[i * numY + j]*myDyy[j * numY + 0]);
     b[i * numX + j] = dtInv - 0.5*(0.5*myVarX[i * numY + j]*myDxx[i * numY + 1]);
-    c[i * numX + j] = -0.5*(0.5*myVarX[i * numY + j]*myDxx[i * numY + 2]);
+    c[i * numX + j] = -0.5*(0.5*myVarY[i * numY + j]*myDyy[i * numY + 2]);
     y[i * numX + j] = dtInv*u[j * numX + i] - 0.5*v[i * numY + j];
 }
-REAL   value(
-                 REAL* myX,
+REAL  value(     REAL* myX,
                  REAL* myY,
-                 REAL* myTimeline
+                 REAL* myTimeline,
                  unsigned myXindex,
                  unsigned myYindex,
                  REAL* myResult,
@@ -157,9 +157,9 @@ REAL   value(
     initOperator(myY, myDyy);
     
     dim3 grid(numY, numX,1);
-    dim3 block(T,T,1) //husk at sætte T
+    dim3 block(T,T,1); //husk at sætte T
     
-    unsigned numZ = max(numX,numY);
+    unsigned numZ = MAX(numX,numY);
     
     REAL* u = (REAL*) malloc(numX*numY*numT*sizeof(REAL));
     REAL* v = (REAL*) malloc(numX*numY*numT*sizeof(REAL));
@@ -205,12 +205,12 @@ REAL   value(
     cudaMemcpy(d_u, u, numX*numY*numT*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_v, v, numX*numY*numT*sizeof(REAL), cudaMemcpyHostToDevice);
  
-    setPayoff_kernel <<< grid, block >>> (strike, d_myX, d_myY, d_myResult);
+    setPayoff_kernel<<< grid, block >>>(strike, d_myX, d_myY, d_myResult);
     
     cudaMemcpy(myResult, d_myResult, numX*numY*sizeof(REAL), cudaMemcpyDeviceToHost);
  
     for(int i = numT-2; i>=0;--i){
-        dtInv = 1.0/(myTimeline[i+1]-myTimeline[i]);
+        REAL dtInv = 1.0/(myTimeline[i+1]-myTimeline[i]);
         updateParams_kernel <<< grid, block >>> (i, alpha, beta, nu, d_myX, d_myY, d_myVarX[i], d_myVarY[i], d_myTimeline, numX, numY);
         rollback_explicit_x <<< grid, block >>> (d_u[i], d_myResult, myVarX, myDxx, dtInv, numX, numY); 
         rollback_explicit_y <<< grid, block >>> (d_v[i], d_u[i], d_myResult, d_myVarY[i], d_myDyy, dtInv, numX, numY);
@@ -249,10 +249,10 @@ REAL   value(
     cudaFree(d_myVarY);
     cudaFree(d_myTimeline);
     cudaFree(d_u);
-    cudaFree(d_my_Dxx);
-    cudaFree(d_my_Dyy);                  
+    cudaFree(d_myDxx);
+    cudaFree(d_myDyy);                  
     
-    return myResult[myXIndex][myYindex];
+    return myResult[myXindex][myYindex];
 //call InitGrid, std funktion
 
 //call InitOperator, std funktion

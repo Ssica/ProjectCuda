@@ -8,7 +8,48 @@
 #include "Constants.h"
 
 using namespace std;
+struct PrivGlobs2 {
 
+    //	grid
+    REAL*               myX;        // [numX]
+    REAL*               myY;        // [numY]
+    REAL*               myTimeline; // [numT]
+    unsigned            myXindex;  
+    unsigned            myYindex;
+
+    //	variable
+    REAL* myResult; // [numX][numY]
+
+    //	coeffs
+    REAL*   myVarX; // [numX][numY]
+    REAL*   myVarY; // [numX][numY]
+
+    //	operators
+    REAL*   myDxx;  // [numX][4]
+    REAL*   myDyy;  // [numY][4]
+
+    PrivGlobs2( ) {
+        printf("Invalid Contructor: need to provide the array sizes! EXITING...!\n");
+        exit(0);
+    }
+
+    PrivGlobs2(  const unsigned int& numX,
+                const unsigned int& numY,
+                const unsigned int& numT ) {
+        this-> myX = (REAL*)malloc(numX*sizeof(REAL));
+        this-> myDxx = (REAL*)malloc(numX*4*sizeof(REAL));
+
+        this-> myY = (REAL*)malloc(numY*sizeof(REAL));
+        this-> myDyy = (REAL*)malloc(numY*4*sizeof(REAL));
+
+        this-> myTimeline = (REAL*)malloc(numT*sizeof(REAL));
+
+        this-> myVarX = (REAL*)malloc(numX*numY*sizeof(REAL));
+        this-> myVarY = (REAL*)malloc(numX*numY*sizeof(REAL));
+        this-> myResult = (REAL*)malloc(numX*numY*sizeof(REAL));
+        
+    }
+} __attribute__ ((aligned (128)));
 
 struct PrivGlobs {
 
