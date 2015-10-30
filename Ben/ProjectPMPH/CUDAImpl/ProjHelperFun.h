@@ -10,7 +10,7 @@
 using namespace std;
 
 
-struct PrivGlobs {
+struct PrivGlobs2 {
 
     //	grid
     REAL*               myX;        // [numX]
@@ -30,12 +30,12 @@ struct PrivGlobs {
     REAL*   myDxx;  // [numX][4]
     REAL*   myDyy;  // [numY][4]
 
-    PrivGlobs( ) {
+    PrivGlobs2( ) {
         printf("Invalid Contructor: need to provide the array sizes! EXITING...!\n");
         exit(0);
     }
 
-    PrivGlobs(  const unsigned int& numX,
+    PrivGlobs2(  const unsigned int& numX,
                 const unsigned int& numY,
                 const unsigned int& numT ) {
         this-> myX = (REAL*)malloc(numX*sizeof(REAL));
@@ -54,18 +54,21 @@ struct PrivGlobs {
 } __attribute__ ((aligned (128)));
 
 
-void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t, 
-                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs   
+void initGrid2(  const REAL s0, const REAL alpha, const REAL nu,const REAL t, 
+                const unsigned numX, const unsigned numY, const unsigned numT, 
+                REAL* myTimeline, unsigned myXindex, REAL* myX, 
+                unsigned myYindex, REAL* myY   
             );
 
-void initOperator(  const vector<REAL>& x, 
-                    vector<vector<REAL> >& Dxx
+void initOperator(  REAL*  x, 
+                    REAL* Dxx, unsigned numX
                  );
 
-void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs);
+//void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs);
 
-void setPayoff(const REAL strike, PrivGlobs& globs );
+//void setPayoff(const REAL strike, PrivGlobs& globs );
 
+/*
 void tridag(
     const vector<REAL>&   a,   // size [n]
     const vector<REAL>&   b,   // size [n]
@@ -77,8 +80,17 @@ void tridag(
 );
 
 void rollback( const unsigned g, PrivGlobs& globs );
-
-REAL   value(   PrivGlobs    globs,
+*/
+REAL   values(   REAL* myX,
+                 REAL* myY,
+                 REAL* myTimeline,
+                 unsigned myXindex,
+                 unsigned myYindex,
+                 REAL* myResult,
+                 REAL* myVarX,
+                 REAL* myVarY,
+                 REAL* myDxx,
+                 REAL* myDyy,
                 const REAL s0,
                 const REAL strike, 
                 const REAL t, 

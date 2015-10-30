@@ -3,7 +3,7 @@
 
 #include <cuda_runtime.h>
 
-typedef float REAL;
+//typedef float REAL;
 
 class MyReal2 {
   public:
@@ -313,5 +313,31 @@ TRIDAG_SOLVER(  REAL* a,
 #endif
 }
 
+void tridagCUDAWrapper( const unsigned int block_size,
+                        REAL*   a,
+                        REAL*   b,
+                        REAL*   c,
+                        REAL*   r,
+                        const unsigned int n,
+                        const unsigned int sgm_sz,
+                        REAL*   u,
+                        REAL*   uu 
+) {
+    unsigned int num_blocks;
+    unsigned int sh_mem_size = block_size * 32;
+
+    // assumes sgm_sz divides block_size
+    if((block_size % sgm_sz)!=0) {
+        printf("Invalid segment or block size. Exiting!\n\n!");
+        exit(0);
+    }
+    if((n % sgm_sz)!=0) {
+        printf("Invalid total size (not a multiple of segment size). Exiting!\n\n!");
+        exit(0);
+    }
+    num_blocks = (n + (block_size - 1)) / block_size;
+    TRIDAG_SOLVER<<< num_blocks, block_size, sh_mem_size >>>(a, b, c, r, n, sgm_sz, u, uu);
+    cudaThreadSynchronize();
+}
 #endif //SCAN_KERS
 

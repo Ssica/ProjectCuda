@@ -2,6 +2,10 @@
 #include "Constants.h"
 #include "TridagKernel.cu.h"
 
+#include <cuda_runtime.h>
+
+const unsigned int SGM_SIZE = 8;
+
 const unsigned int T = 32;
 
 __global__ void updateParams_kernel(const unsigned g, const REAL alpha, const REAL beta, const REAL nu,
@@ -23,7 +27,7 @@ __global__ void setPayoff_kernel(const REAL strike, REAL *myX, REAL *myY, REAL *
 
     if (i >= numX && j >= numY) { return; }
     
-    REAL payoff = MAX(myX[i] - strike, (REAL)0.0);
+    REAL payoff = max(myX[i] - strike, (REAL)0.0);
     myResult[i * numY + j] = payoff;
         
 }
@@ -109,7 +113,7 @@ __global__ void rollback_implicit_x(REAL *a,
     c[j * numY + i] = -0.5*(0.5*myVarX[i * numY + j]*myDxx[i * numY + 2]);
     
 }
-
+/*
 __global__ void rollback_implicit_y(REAL *a, 
                                     REAL *b, 
                                     REAL *c, 
@@ -117,8 +121,8 @@ __global__ void rollback_implicit_y(REAL *a,
                                     REAL *u, 
                                     REAL *v, 
                                     REAL *myVarY, 
-                                    REAL* myDyy, 
-                                    REAL* dtInv,
+                                    REAL *myDyy, 
+                                    REAL dtInv,
                                     int numY, 
                                     int numX){
 
@@ -127,11 +131,37 @@ __global__ void rollback_implicit_y(REAL *a,
 
     if (i >= numX && j >= numY) return;
 
-    a[i * numX + j] = -0.5*(0.5*myVarY[i * numY + j]*myDyy[j * numY + 0]);
-    b[i * numX + j] = dtInv - 0.5*(0.5*myVarX[i * numY + j]*myDxx[i * numY + 1]);
-    c[i * numX + j] = -0.5*(0.5*myVarY[i * numY + j]*myDyy[i * numY + 2]);
+    a[j * numY + i] = -0.5*(0.5*myVarY[i * numY + j]*myDyy[i * numY + 0]);
+    b[j * numY + i] = dtInv - 0.5*(0.5*myVarY[i * numY + j]*myDyy[i * numY + 1]);
+    c[j * numY + i] = -0.5*(0.5*myVarY[i * numY + j]*myDyy[i * numY + 2]);
     y[i * numX + j] = dtInv*u[j * numX + i] - 0.5*v[i * numY + j];
 }
+*/
+__global__ void initOperator_kernel(REAL *x, REAL *Dxx, const unsigned numX) {
+    unsigned int i = blockIdx.x *blockDim.x + threadIdx.x;
+
+    if (i >= numX)
+        return;
+
+    if (i == 0 || i == numX-1) {
+        Dxx[i * numX + 0] =  0.0;
+        Dxx[i * numX + 1] =  0.0;
+        Dxx[i * numX + 2] =  0.0;
+        Dxx[i * numX + 3] =  0.0;
+    } else {
+        REAL dxl = x[i] - x[i-1];
+        REAL dxu = x[i+1] - x[i];
+
+        Dxx[i * numX + 0] =  2.0/dxl/(dxl+dxu);
+        Dxx[i * numX + 1] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
+        Dxx[i * numX + 2] =  2.0/dxu/(dxl+dxu);
+        Dxx[i * numX + 3] =  0.0;
+    }
+}
+
+
+
+
 REAL  value(     REAL* myX,
                  REAL* myY,
                  REAL* myTimeline,
@@ -153,13 +183,13 @@ REAL  value(     REAL* myX,
                  const unsigned int numT){
 
     initGrid(s0, alpha, nu, t, numX, numY, numT, myTimeline, myXindex, myX, myYindex, myY);
-    initOperator(myX, myDxx);
-    initOperator(myY, myDyy);
+    initOperator(myX, myDxx, numX);
+    initOperator(myY, myDyy, numY);
     
     dim3 grid(numY, numX,1);
     dim3 block(T,T,1); //husk at sætte T
     
-    unsigned numZ = MAX(numX,numY);
+    unsigned numZ = max(numX,numY);
     
     REAL* u = (REAL*) malloc(numX*numY*numT*sizeof(REAL));
     REAL* v = (REAL*) malloc(numX*numY*numT*sizeof(REAL));
@@ -188,8 +218,8 @@ REAL  value(     REAL* myX,
     cudaMalloc((void**)&d_myX,numX*sizeof(REAL));
     cudaMalloc((void**)&d_myY,numY*sizeof(REAL));
     cudaMalloc((void**)&d_myResult,numX*numY*sizeof(REAL));
-    cudaMalloc((void**)&d_myVarX,numX*numT*sizeof(REAL)); //array expand by numT
-    cudaMalloc((void**)&d_myVarY,numY*numT*sizeof(REAL)); //array expand by numT
+    cudaMalloc((void**)&d_myVarX,numX*numY*sizeof(REAL)); //array expand by numT
+    cudaMalloc((void**)&d_myVarY,numY*numX*sizeof(REAL)); //array expand by numT
     cudaMalloc((void**)&d_myTimeline,numT*sizeof(REAL));
     cudaMalloc((void**)&d_u,numX*numY*numT*sizeof(REAL)); //array expanded with numT
     cudaMalloc((void**)&d_v,numX*numY*numT*sizeof(REAL)); //array expanded with numT
@@ -199,8 +229,8 @@ REAL  value(     REAL* myX,
     cudaMemcpy(d_myX, myX, numX*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_myY, myY, numY*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_myResult, myResult, numX*sizeof(REAL), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_myVarX, myVarX, numX*sizeof(REAL), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_myVarY, myVarY, numY*sizeof(REAL), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_myVarX, myVarX, numX*numY*sizeof(REAL), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_myVarY, myVarY, numX*numY*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_myTimeline, myTimeline, numT*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_u, u, numX*numY*numT*sizeof(REAL), cudaMemcpyHostToDevice);
     cudaMemcpy(d_v, v, numX*numY*numT*sizeof(REAL), cudaMemcpyHostToDevice);
@@ -227,13 +257,13 @@ REAL  value(     REAL* myX,
         cudaMemcpy(d_yy, yy, numZ*numZ*sizeof(REAL), cudaMemcpyHostToDevice);
         cudaMemcpy(d_y, y, numY*numX*sizeof(REAL), cudaMemcpyHostToDevice);
         
-        rollback_implicit_x <<< grid, block >>> (d_a, d_b, d_c, d_myVarX, d_myDxx, dtInv, numY, numX);
+        rollback_implicit_x<<<grid, block>>>(d_a, d_b, d_c, d_myVarX, d_myDxx, dtInv, numY, numX);
         
-        TRIDAG_SOLVER <<< grid, block >>> (d_a, d_b, d_c, d_u[i], numX, sgm_sz, d_u[i], d_yy);
+        TRIDAG_SOLVER<<<grid, block>>>(d_a, d_b, d_c, d_u[i], numX, SGM_SIZE, d_u[i], d_yy);
 
-        rollback_implicit_y <<< grid, block >>> (d_a, d_b, d_c, d_y, d_u[i], d_v[i], d_myVarY[i], d_myDyy, dtInv, numY, numX);
+        //rollback_implicit_y<<<grid, block>>>(d_a, d_b, d_c, d_y, d_u[i], d_v[i], d_myVarY[i], d_myDyy, dtInv, numY, numX);
         
-        TRIDAG_SOLVER <<< grid, block >>> (d_a, d_b, d_c, d_y, numY, sgm_sz, d_myResult, d_yy);
+        TRIDAG_SOLVER<<<grid, block>>>(d_a, d_b, d_c, d_y, numY, SGM_SIZE, d_myResult, d_yy);
         
         cudaFree(d_a);
         cudaFree(d_b);

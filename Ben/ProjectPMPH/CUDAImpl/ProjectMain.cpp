@@ -1,7 +1,6 @@
 #include "ParseInput.h"
 #include "ProjHelperFun.h"
-#include "OpenmpUtil.h"
-#include "ProjCoreOrig.cu.h"
+//#include "OpenmpUtil.h"
 
 int main()
 {
@@ -10,7 +9,7 @@ int main()
 
     readDataSet( OUTER_LOOP_COUNT, NUM_X, NUM_Y, NUM_T ); 
 
-    const int Ps = get_CPU_num_threads();
+    //const int Ps = get_CPU_num_threads();
     REAL* res = (REAL*)malloc(OUTER_LOOP_COUNT*sizeof(REAL));
 
     {   // Original Program (Sequential CPU Execution)
@@ -21,7 +20,7 @@ int main()
         gettimeofday(&t_start, NULL);
 
         run_OrigCPU( OUTER_LOOP_COUNT, NUM_X, NUM_Y, NUM_T, s0, t, alpha, nu, beta, res );
-
+        printf("Hej");
         gettimeofday(&t_end, NULL);
         timeval_subtract(&t_diff, &t_end, &t_start);
         elapsed = t_diff.tv_sec*1e6+t_diff.tv_usec;

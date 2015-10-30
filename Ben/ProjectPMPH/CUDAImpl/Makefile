@@ -1,12 +1,12 @@
 CXX        = nvcc
 LIB        = -L$(OPENCL_LIBDIR) -lOpenCL
-CXXFLAGS   = -O3 -DWITH_FLOATS=1 -DCOUNT=1 -lcuda #-fopenmp -O3 -DWITH_FLOATS=0
+CXXFLAGS   = -O3 -DWITH_FLOATS=0 #-fopenmp -O3 -DWITH_FLOATS=0
 
 INCLUDES    += -I ../include
 GPU_OPTS   = -D lgWARP=5
 
-SOURCES_CPP =ProjectMain.cpp ProjHelperFun.cpp ProjCoreOrig.cu.h 
-HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/OpenmpUtil.h
+SOURCES_CPP =ProjectMain.cpp ProjHelperFun.cpp ProjCoreOrig.cu
+HELPERS     =ProjHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/OpenmpUtil.h TridagKernel.cu.h
 OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
 EXECUTABLE  =runproject
 
@@ -15,6 +15,12 @@ default: gpu
 
 .cpp.o: $(SOURCES_CPP) $(HELPERS)
 	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
+
+
+ProjCoreOrig.o: ProjCoreOrig.cu $(HELPERS)
+	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
+
+
 
 
 gpu: $(EXECUTABLE)
